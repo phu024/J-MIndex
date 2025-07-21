@@ -1,0 +1,7 @@
+com/mindex/metrics/MaintainabilityIndexCalculator.class
+com/mindex/Main.class
+com/mindex/analyzer/JavaAnalyzer.class
+com/mindex/export/ResultExporter.class
+com/mindex/model/AnalysisResult.class
+com/mindex/model/MethodInfo.class
+com/mindex/metrics/MetricCalculator.class
