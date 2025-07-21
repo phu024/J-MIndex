@@ -16,19 +16,20 @@ import java.util.HashMap;
 import java.util.Map;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.stmt.Statement;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import com.mindex.metrics.MetricCalculator;
-import com.mindex.export.ResultExporter;
 import com.mindex.model.AnalysisResult;
 
+/**
+ * Main analyzer class for traversing Java source files, extracting methods/classes/packages,
+ * and calculating metrics for Maintainability Index analysis.
+ * Stateless: returns all results via AnalysisResult.
+ */
 public class JavaAnalyzer {
-    private final Map<String, ArrayList<MethodInfo>> classMethods = new HashMap<>();
-    private final ArrayList<MethodInfo> allMethods = new ArrayList<>();
-    private final Map<String, ArrayList<MethodInfo>> packageMethods = new HashMap<>();
-
+    /**
+     * Analyze all Java files in the given source directory (recursively, skipping test folders).
+     * @param sourceDir Path to the root of Java source code
+     * @return AnalysisResult containing all metrics at method/class/package/project levels
+     */
     public AnalysisResult analyzeProject(String sourceDir) {
         Map<String, ArrayList<MethodInfo>> classMethods = new HashMap<>();
         Map<String, ArrayList<MethodInfo>> packageMethods = new HashMap<>();
@@ -47,6 +48,13 @@ public class JavaAnalyzer {
         return new AnalysisResult(classMethods, packageMethods, allMethods);
     }
 
+    /**
+     * Parse a Java file and extract metrics for all classes/methods inside.
+     * @param file Java source file
+     * @param classMethods Map to collect method info by class
+     * @param packageMethods Map to collect method info by package
+     * @param allMethods List to collect all method info
+     */
     private void analyzeFile(File file, Map<String, ArrayList<MethodInfo>> classMethods, Map<String, ArrayList<MethodInfo>> packageMethods, ArrayList<MethodInfo> allMethods) {
         try {
             CompilationUnit cu = StaticJavaParser.parse(file);
@@ -69,6 +77,11 @@ public class JavaAnalyzer {
         }
     }
 
+    /**
+     * Analyze a single method and calculate all metrics (Halstead, CC, LOC, MI).
+     * @param method JavaParser MethodDeclaration node
+     * @return MethodInfo with all calculated metrics
+     */
     private MethodInfo analyzeMethod(MethodDeclaration method) {
         String name = method.getNameAsString();
         int loc = MetricCalculator.calculateLOC(method);
@@ -83,103 +96,10 @@ public class JavaAnalyzer {
         return new MethodInfo(name, halstead, cyclomatic, loc, mi);
     }
 
-    private int calculateCyclomaticComplexity(MethodDeclaration method) {
-        // McCabe: CC = E - N + 2P
-        // N = number of statements
-        // E = N - 1 + number of branch points
-        // P = 1 (for a single method)
-        int numStatements = method.findAll(Statement.class).size();
-        int numBranches = 0;
-        numBranches += method.findAll(com.github.javaparser.ast.stmt.IfStmt.class).size();
-        numBranches += method.findAll(com.github.javaparser.ast.stmt.ForStmt.class).size();
-        numBranches += method.findAll(com.github.javaparser.ast.stmt.WhileStmt.class).size();
-        numBranches += method.findAll(com.github.javaparser.ast.stmt.DoStmt.class).size();
-        numBranches += method.findAll(com.github.javaparser.ast.stmt.SwitchEntry.class).size();
-        numBranches += method.findAll(com.github.javaparser.ast.stmt.CatchClause.class).size();
-        int N = numStatements;
-        int E = N - 1 + numBranches;
-        int P = 1;
-        int cc = E - N + 2 * P;
-        return cc;
-    }
-
-    private double calculateHalsteadVolume(MethodDeclaration method) {
-        // Halstead Volume: V = N * log2(n)
-        Set<String> operators = new HashSet<>();
-        Set<String> operands = new HashSet<>();
-        AtomicInteger total = new AtomicInteger(0);
-
-        method.walk(node -> {
-            // Operators
-            if (node instanceof com.github.javaparser.ast.expr.BinaryExpr) {
-                operators.add(((com.github.javaparser.ast.expr.BinaryExpr) node).getOperator().asString());
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.expr.UnaryExpr) {
-                operators.add(((com.github.javaparser.ast.expr.UnaryExpr) node).getOperator().asString());
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.expr.AssignExpr) {
-                operators.add("=");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.IfStmt) {
-                operators.add("if");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.ForStmt) {
-                operators.add("for");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.WhileStmt) {
-                operators.add("while");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.DoStmt) {
-                operators.add("do");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.SwitchStmt) {
-                operators.add("switch");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.SwitchEntry) {
-                operators.add("case");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.CatchClause) {
-                operators.add("catch");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.BreakStmt) {
-                operators.add("break");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.ContinueStmt) {
-                operators.add("continue");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.ReturnStmt) {
-                operators.add("return");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.ThrowStmt) {
-                operators.add("throw");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.stmt.TryStmt) {
-                operators.add("try");
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.expr.MethodCallExpr) {
-                operators.add("call");
-                total.incrementAndGet();
-            }
-            // Operands
-            if (node instanceof com.github.javaparser.ast.expr.NameExpr) {
-                operands.add(((com.github.javaparser.ast.expr.NameExpr) node).getNameAsString());
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.expr.SimpleName) {
-                operands.add(((com.github.javaparser.ast.expr.SimpleName) node).asString());
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.expr.LiteralExpr) {
-                operands.add(node.toString());
-                total.incrementAndGet();
-            } else if (node instanceof com.github.javaparser.ast.body.VariableDeclarator) {
-                operands.add(((com.github.javaparser.ast.body.VariableDeclarator) node).getNameAsString());
-                total.incrementAndGet();
-            }
-        });
-        int n = operators.size() + operands.size();
-        if (total.get() == 0 || n == 0) return 1.0;
-        return total.get() * (Math.log(n) / Math.log(2));
-    }
-
+    /**
+     * Print results to the console at method, class, package, and project levels.
+     * @param result AnalysisResult containing all metrics
+     */
     public void printResults(AnalysisResult result) {
         Map<String, ArrayList<MethodInfo>> classMethods = result.classMethods;
         Map<String, ArrayList<MethodInfo>> packageMethods = result.packageMethods;
@@ -208,20 +128,5 @@ public class JavaAnalyzer {
         // Project level
         double projectMI = allMethods.stream().mapToDouble(m -> m.maintainabilityIndex).average().orElse(0);
         System.out.printf("\n[Project Avg MI: %.2f]\n", projectMI);
-    }
-
-    private void exportResultsToCSV(String outFile) {
-        try (java.io.PrintWriter writer = new java.io.PrintWriter(outFile)) {
-            writer.println("Class,Method,MI,CyclomaticComplexity,HalsteadVolume,LOC");
-            for (String className : classMethods.keySet()) {
-                ArrayList<MethodInfo> methods = classMethods.get(className);
-                for (MethodInfo m : methods) {
-                    writer.printf("%s,%s,%.2f,%d,%.2f,%d\n", className, m.name, m.maintainabilityIndex, m.cyclomaticComplexity, m.halsteadVolume, m.loc);
-                }
-            }
-            System.out.println("Results exported to: " + outFile);
-        } catch (IOException e) {
-            System.err.println("Failed to write output file: " + e.getMessage());
-        }
     }
 } 

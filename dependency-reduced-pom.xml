@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.phu024</groupId>
   <artifactId>mindex-analyzer</artifactId>
-  <version>0.0.1</version>
+  <version>1.0.0</version>
   <build>
     <finalName>jmi-${project.version}</finalName>
     <plugins>
@@ -24,6 +24,15 @@
               <mainClass>com.mindex.Main</mainClass>
             </transformer>
           </transformers>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0-M9</version>
+        <configuration>
+          <includes>
+            <include>**/*Test.java</include>
+          </includes>
         </configuration>
       </plugin>
     </plugins>

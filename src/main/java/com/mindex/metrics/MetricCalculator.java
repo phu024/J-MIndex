@@ -6,11 +6,28 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Utility class for calculating code metrics for Java methods.
+ * Includes Lines of Code (LOC), Cyclomatic Complexity (CC), and Halstead Volume (HV).
+ * All methods are static and operate on JavaParser's MethodDeclaration AST node.
+ */
 public class MetricCalculator {
+    /**
+     * Calculates the number of lines of code (LOC) in a method.
+     * @param method JavaParser MethodDeclaration node
+     * @return Number of lines of code
+     */
     public static int calculateLOC(MethodDeclaration method) {
         return (int) method.toString().lines().count();
     }
 
+    /**
+     * Calculates Cyclomatic Complexity (CC) using McCabe's formula: CC = E - N + 2P
+     * E = edges, N = nodes, P = connected components (usually 1 per method)
+     * Decision points include if, for, while, do, switch, catch.
+     * @param method JavaParser MethodDeclaration node
+     * @return Cyclomatic Complexity
+     */
     public static int calculateCyclomaticComplexity(MethodDeclaration method) {
         int numStatements = method.findAll(Statement.class).size();
         int numBranches = 0;
@@ -27,6 +44,13 @@ public class MetricCalculator {
         return cc;
     }
 
+    /**
+     * Calculates Halstead Volume (HV) for a method.
+     * HV = N * log2(n), where N = total operators+operands, n = distinct operators+operands.
+     * Operators and operands are extracted from the JavaParser AST.
+     * @param method JavaParser MethodDeclaration node
+     * @return Halstead Volume
+     */
     public static double calculateHalsteadVolume(MethodDeclaration method) {
         Set<String> operators = new HashSet<>();
         Set<String> operands = new HashSet<>();
